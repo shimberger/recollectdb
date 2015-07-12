@@ -1,0 +1,20 @@
+
+apply plugin: 'java'
+apply plugin: 'eclipse'
+apply plugin: 'scala'
+
+sourceCompatibility = 1.8
+targetCompatibility = 1.8
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+	compile 'io.netty:netty-buffer:4.0.28.Final'
+	testCompile 'junit:junit:4.12'
+}
+
+task wrapper(type: Wrapper) {
+    gradleVersion = '2.4'
+}

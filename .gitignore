@@ -1,0 +1,8 @@
+bin
+.classpath
+.gradle
+.settings
+.tmpBin
+.project
+.cache
+test.tmp
