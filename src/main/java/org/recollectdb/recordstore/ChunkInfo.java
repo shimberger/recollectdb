@@ -27,6 +27,7 @@ public final class ChunkInfo {
 
 	public static ChunkInfo readInfo(ByteBuffer buffer) {
 		final ByteBuffer metadataBuffer = buffer;
+		buffer.position(buffer.capacity()-METADATA_SIZE);
 		final byte type = metadataBuffer.get(); // 1
 		final int index = metadataBuffer.getInt(); // 4
 		final int dataSize = metadataBuffer.getInt(); // 4
@@ -52,6 +53,7 @@ public final class ChunkInfo {
 		} else {
 			buffer.put((byte)0);
 		}
+		buffer.rewind();		
 	}
 	
 	

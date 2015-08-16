@@ -43,28 +43,33 @@ public final class RecordStore {
 			final ChunkInfo chunkInfo = ChunkInfo.readInfo(currChunkContent);
 			if (chunkInfo.isLast) {
 				//final RecordInfo recordInfo = RecordInfo.wrap(chunkInfo);
-				final boolean stopIterating = fun.apply(null);
-				if (stopIterating) {
+				final boolean continueIteration = fun.apply(chunkInfo);
+				if (!continueIteration) {
 					break;
 				}
 			}
 		}
 	}
 	
-	public void addRecord(final byte type, final byte[] data) {
-		addRecord(type,new ByteArrayInputStream(data));
+	public int getChunkDataSize() {
+		return this.dataSize;
+	}
+	
+	public long addRecord(final byte type, final byte[] data) {
+		return addRecord(type,new ByteArrayInputStream(data));
 	}
 
-	public void addRecord(final byte type, final ByteBuffer data) {
-		addRecord(type,new ByteArrayInputStream(data.array()));
+	public long addRecord(final byte type, final ByteBuffer data) {
+		return addRecord(type,new ByteArrayInputStream(data.array()));
 	}
 
-	public void addRecord(final byte type, final InputStream is) {
+	public long addRecord(final byte type, final InputStream is) {
 		final ByteBuffer footer = ChunkInfo.writeBuffer();
 		final ChunkedStreamReader dataChunks = new ChunkedStreamReader(is, dataSize);
 		final long recordStartOffset = storage.length();
-		int chunkIndex = 0;
+		int chunkIndex = -1;
 		while (dataChunks.hasNext()) {
+			chunkIndex++;
 			final Chunk chunk = dataChunks.next();
 			final boolean isLastChunk = !dataChunks.hasNext();
 			final long chunkOffset = recordStartOffset + (chunkSize * chunkIndex); 
@@ -72,8 +77,8 @@ public final class RecordStore {
 			metadata.writeInfo(footer);
 			storage.write(chunk.data);
 			storage.write(footer);
-			chunkIndex++;
 		}
+		return recordStartOffset + (chunkIndex * chunkSize);
 	}
 
 }

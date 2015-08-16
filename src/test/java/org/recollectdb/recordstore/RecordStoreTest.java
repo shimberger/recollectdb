@@ -2,6 +2,8 @@ package org.recollectdb.recordstore;
 
 import static org.junit.Assert.*;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import org.junit.Before;
 import org.junit.Test;
 import org.recollectdb.storage.ConcurrentMemoryStorage;
@@ -22,15 +24,28 @@ public class RecordStoreTest {
 
 	@Test
 	public void simpleUseCase() {
-		store.addRecord((byte) 1, ByteUtils.streamFromString("hello 1"));
-		store.addRecord((byte) 2, ByteUtils.streamFromString("hello 2"));
+		long lastOffset = -1;
+		lastOffset = store.addRecord((byte) 2, ByteUtils.streamFromString("hello 1"));
+		assertEquals(0, lastOffset);
+		lastOffset = store.addRecord((byte) 8, ByteUtils.streamFromString("hello 2"));
+		assertEquals(CHUNK_SIZE, lastOffset);
+		assertEquals(2,countRecords(store));
 		store.forEachRecord(info -> {
-			assertEquals(info.index, 0);
-			assertEquals(info.type, 1);
-			assertEquals(info.isLast, true);
-			assertEquals(info.dataLength, 7);
+			assertEquals(0, info.index);
+			assertEquals((byte) 8, info.type);
+			assertEquals(true, info.isLast);
+			assertEquals(7, info.dataLength);
 			return false;
 		});
+	}
+	
+	private static int countRecords(final RecordStore rs) {
+		final AtomicInteger count = new AtomicInteger(0);
+		rs.forEachRecord(info -> {
+			count.getAndIncrement();
+			return true;
+		});
+		return count.get();
 	}
 
 }
