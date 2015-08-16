@@ -20,7 +20,6 @@ public interface Storage {
 	public long write(final ByteBuffer buffer) throws StorageException;
 	
 	/**
-	 * Reads the data at the specified offset. 
 	 * The implementation is free to reset the mark of the buffer.
 	 * Returns the buffer ready for reading the data (e.g. correct position and limit).
 	 * 

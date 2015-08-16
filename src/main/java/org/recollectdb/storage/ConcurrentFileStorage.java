@@ -6,15 +6,15 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
-public class FileStorage implements Storage {
+public class ConcurrentFileStorage implements Storage {
 
 	private final FileChannel file;
-	
-	public FileStorage(File file) throws IOException {
-		RandomAccessFile raf = new RandomAccessFile(file.getAbsolutePath(),"rw");
+
+	public ConcurrentFileStorage(File file) throws IOException {
+		RandomAccessFile raf = new RandomAccessFile(file.getAbsolutePath(), "rw");
 		this.file = raf.getChannel();
 	}
-	
+
 	@Override
 	public long write(ByteBuffer buffer) throws StorageException {
 		try {
@@ -27,18 +27,17 @@ public class FileStorage implements Storage {
 	}
 
 	@Override
-	public void read(long pointer, ByteBuffer targetBuffer)
-			throws StorageException {
+	public void read(long pointer, ByteBuffer targetBuffer) throws StorageException {
 		try {
 			if (pointer > file.position()) {
 				throw new StorageException();
 			}
-			targetBuffer.mark();			
+			targetBuffer.mark();
 			file.read(targetBuffer, pointer);
 			targetBuffer.reset();
 		} catch (IOException e) {
 			throw new StorageException(e);
-		}		
+		}
 	}
 
 	@Override

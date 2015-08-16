@@ -2,32 +2,30 @@ package org.recollectdb.storage;
 
 import java.nio.ByteBuffer;
 
-// TODO: Concurrency
+// Not Thread Safe
 public class BufferedStorage implements Storage {
 
 	private final Storage underlyingStorage;
-	
-	private volatile ByteBuffer primaryBuffer;
-	
-	private volatile ByteBuffer secondaryBuffer;
-	
-	public BufferedStorage(final Storage storage, final int size) {
-		this.primaryBuffer = ByteBuffer.allocateDirect(size);
-		this.secondaryBuffer = ByteBuffer.allocateDirect(size);
+
+	private final ByteBuffer writeBuffer;
+
+	public BufferedStorage(final Storage storage, final ByteBuffer buffer) {
 		this.underlyingStorage = storage;
+		this.writeBuffer = buffer;
 	}
-	
+
 	@Override
 	public long write(final ByteBuffer dataBuffer) throws StorageException {
 		final long positionBeforeWrite = length();
 		final ByteBuffer writeChunk = dataBuffer.duplicate();
 		do {
-			final int numBytesToWrite = Math.min(dataBuffer.remaining(), primaryBuffer.remaining());
-			final int chunkEndPosition = writeChunk.position() + numBytesToWrite; // Current position
+			final int numBytesToWrite = Math.min(dataBuffer.remaining(), writeBuffer.remaining());
+			final int chunkEndPosition = writeChunk.position() + numBytesToWrite; // Current
+																					// position
 			writeChunk.limit(chunkEndPosition);
 			underlyingStorage.write(writeChunk);
 			dataBuffer.position(chunkEndPosition);
-			if (primaryBuffer.remaining() == 0) {
+			if (writeBuffer.remaining() == 0) {
 				writeBufferToUnderlyingStorage();
 			}
 		} while (dataBuffer.remaining() > 0);
@@ -35,26 +33,46 @@ public class BufferedStorage implements Storage {
 	}
 
 	@Override
-	public void read(long pointer, ByteBuffer targetBuffer)
-			throws StorageException {
-		// TODO Auto-generated method stub
-		
+	public void read(long pointer, ByteBuffer targetBuffer) throws StorageException {
+		final long storageSize = underlyingStorage.length();
+		final long virtualLength = storageSize + writeBuffer.position();
+		if (pointer > virtualLength) {
+			throw new StorageException();
+		}
+		if (pointer <= storageSize) {
+			underlyingStorage.read(pointer, targetBuffer);
+		}
+		if (targetBuffer.remaining() > 0) {
+			final long cachePointer = Math.abs(pointer - storageSize);
+			if (cachePointer <= writeBuffer.position()) {
+				final int lastPos = writeBuffer.position();
+				writeBuffer.position((int) cachePointer);
+				targetBuffer.put(writeBuffer);
+				writeBuffer.position(lastPos);
+			}
+		}
+
 	}
 
 	@Override
 	public long flush() throws StorageException {
-		writeBufferToUnderlyingStorage();
+		if (writeBuffer != null) {
+			writeBufferToUnderlyingStorage();
+		}
 		return underlyingStorage.flush();
 	}
 
 	@Override
 	public long length() throws StorageException {
-		return underlyingStorage.length() + primaryBuffer.position();
+		if (writeBuffer != null) {
+			return underlyingStorage.length() + writeBuffer.position();
+		}
+		return underlyingStorage.length();
 	}
-	
+
 	private void writeBufferToUnderlyingStorage() {
-		underlyingStorage.write(primaryBuffer);
-		primaryBuffer.rewind();
-	}	
+		underlyingStorage.write(writeBuffer);
+		writeBuffer.rewind();
+	}
 
 }

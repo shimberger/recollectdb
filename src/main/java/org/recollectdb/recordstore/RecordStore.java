@@ -1,129 +1,79 @@
 package org.recollectdb.recordstore;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.nio.ByteBuffer;
-import java.util.zip.CRC32;
 
+import org.recollectdb.common.Function1;
+import org.recollectdb.recordstore.ChunkedStreamReader.Chunk;
 import org.recollectdb.storage.Storage;
 
-public class RecordStore {
+public final class RecordStore {
 
-	public static class Writer {
-		
-		// last|notlast + chunk-index + type + crc32 + size
-		public static final short HEADER_SIZE = 1 + 2 + 1 + 8 + 2;
-				
-		private final RecordStore recordStore;
-		
-		private final byte recordType;
-		
-		private final CRC32 crc32 = new CRC32();
-		
-		private final short chunkDataSize;
-		
-		private short chunkRemainingBytes = 0;
-		
-		private short chunkIndex = 0;
-		
-		private Writer(byte recordType, RecordStore recordStore) {
-			this.recordStore = recordStore;
-			this.recordType = recordType;
-			this.chunkDataSize = (short) (recordStore.chunkSize - HEADER_SIZE);
-			this.resetRemainingBytes();
-		}
-		
-		public void write(ByteBuffer buffer) {
-			ByteBuffer tempBuffer;
-			while (buffer.hasRemaining()) {
-				if (chunkRemainingBytes == 0) {
-					finishChunk(false);
-				}
-				int bytesToWrite = Math.min(buffer.remaining(), chunkRemainingBytes);
-				tempBuffer = buffer.slice();
-				tempBuffer.limit(bytesToWrite);
-				crc32.update(tempBuffer);
-				tempBuffer.position(0);
-				recordStore.storage.write(tempBuffer);
-				chunkRemainingBytes -= bytesToWrite;			
-				buffer.position(buffer.position() + bytesToWrite);
-			}
-		}
-				
-		private long finishChunk(boolean lastChunk) {			
-			fillRemainingOfChunkWithEmptyData();
-			long offset = writeHeaderData(lastChunk);
-			resetRemainingBytes();
-			chunkIndex++;
-			crc32.reset();
-			return offset - recordStore.chunkSize;
-		}
-
-		private long writeHeaderData(boolean lastChunk) {
-			short chunkSize = (short) (chunkDataSize - chunkRemainingBytes);
-			recordStore.headerBuffer.rewind();
-			if (lastChunk) {
-				recordStore.headerBuffer.put((byte)1);
-			} else {
-				recordStore.headerBuffer.put((byte)0);
-			}
-			recordStore.headerBuffer.putShort(chunkIndex);
-			recordStore.headerBuffer.put(recordType);
-			recordStore.headerBuffer.putLong(crc32.getValue());
-			recordStore.headerBuffer.putShort(chunkSize);
-			recordStore.headerBuffer.flip();
-			recordStore.storage.write(recordStore.headerBuffer);
-			return recordStore.storage.length();
-		}
-
-		private void fillRemainingOfChunkWithEmptyData() {
-			ByteBuffer tempBuffer = recordStore.emptyBuffer.slice();
-			tempBuffer.limit(chunkRemainingBytes);
-			recordStore.storage.write(tempBuffer);
-		}
-		
-		private void resetRemainingBytes() {
-			this.chunkRemainingBytes = chunkDataSize;
-		}
-		
-		
-		
-	}
-		
 	private final Storage storage;
-	
-	public final short chunkSize;
-	
-	private final ByteBuffer emptyBuffer;
-		
-	private final ByteBuffer headerBuffer;
-		
-	public RecordStore(short chunkSize, Storage storage) {
+
+	private final int chunkSize;
+
+	private final int dataSize;
+
+	public RecordStore(final short chunkSize, final Storage storage) {
 		this.storage = storage;
 		this.chunkSize = chunkSize;
-		this.emptyBuffer = ByteBuffer.wrap(new byte[chunkSize]).asReadOnlyBuffer();
-		this.headerBuffer = ByteBuffer.allocate(Writer.HEADER_SIZE);	
+		this.dataSize = ChunkInfo.dataSize(chunkSize);
 	}
-	
-	public long getChunkCount() {
-		return storage.length() / chunkSize;
-	}
-	
-	public void readChunk(long offset, final ByteBuffer data) {
-		if (data.remaining() != chunkSize) {
-			throw new RuntimeException("Wrong buffer size");
+
+	public void forEachRecord(final Function1<Boolean, ChunkInfo> fun) {
+		// determine the end offset of the last chunk, this can not be the exact
+		// size
+		// of storage if the last write got interrupted mid-chunk
+		final long lastChunkEnd = (storage.length() / chunkSize) * chunkSize;
+
+		// iterate through the chunks backwards until we reach the first one
+		// the offset will be the last byte of the chunk
+		final ByteBuffer currChunkContent = ByteBuffer.allocate(chunkSize);
+		for (long currChunkEnd = lastChunkEnd; currChunkEnd >= chunkSize; currChunkEnd -= chunkSize) {
+			// compute start offset
+			final long currChunkBegin = currChunkEnd - chunkSize;
+
+			// read the data
+			currChunkContent.rewind();
+			storage.read(currChunkBegin, currChunkContent);
+
+			// Read the info
+			final ChunkInfo chunkInfo = ChunkInfo.readInfo(currChunkContent);
+			if (chunkInfo.isLast) {
+				//final RecordInfo recordInfo = RecordInfo.wrap(chunkInfo);
+				final boolean stopIterating = fun.apply(null);
+				if (stopIterating) {
+					break;
+				}
+			}
 		}
-		if (offset % chunkSize != 0) {
-			throw new RuntimeException("Wrong offset value");
+	}
+	
+	public void addRecord(final byte type, final byte[] data) {
+		addRecord(type,new ByteArrayInputStream(data));
+	}
+
+	public void addRecord(final byte type, final ByteBuffer data) {
+		addRecord(type,new ByteArrayInputStream(data.array()));
+	}
+
+	public void addRecord(final byte type, final InputStream is) {
+		final ByteBuffer footer = ChunkInfo.writeBuffer();
+		final ChunkedStreamReader dataChunks = new ChunkedStreamReader(is, dataSize);
+		final long recordStartOffset = storage.length();
+		int chunkIndex = 0;
+		while (dataChunks.hasNext()) {
+			final Chunk chunk = dataChunks.next();
+			final boolean isLastChunk = !dataChunks.hasNext();
+			final long chunkOffset = recordStartOffset + (chunkSize * chunkIndex); 
+			final ChunkInfo metadata = new ChunkInfo(type,chunkIndex,chunkOffset,chunk.size,isLastChunk);
+			metadata.writeInfo(footer);
+			storage.write(chunk.data);
+			storage.write(footer);
+			chunkIndex++;
 		}
-		if (offset > storage.length() - chunkSize) {
-			throw new RuntimeException("Offset value overflow");
-		}				
-		storage.read(offset, data);
 	}
-	
-	public long writeRecordOfType(byte type,WriterCallback write) {
-		final Writer writer = new Writer(type,this);
-		write.perform(writer);
-		return writer.finishChunk(true);
-	}
-	
+
 }
