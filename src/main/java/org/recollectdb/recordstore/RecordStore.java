@@ -1,10 +1,13 @@
 package org.recollectdb.recordstore;
 
 import java.io.ByteArrayInputStream;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.ByteBuffer;
 
 import org.recollectdb.common.Function1;
+import org.recollectdb.common.Procedure1;
 import org.recollectdb.recordstore.ChunkedStreamReader.Chunk;
 import org.recollectdb.storage.Storage;
 
@@ -53,6 +56,33 @@ public final class RecordStore {
 	
 	public int getChunkDataSize() {
 		return this.dataSize;
+	}
+	
+	public void readRecord(final long recordOffset, Procedure1<ByteBuffer> chunkHandler) {
+		final ByteBuffer chunk = ByteBuffer.allocate(chunkSize);
+		storage.read(recordOffset, chunk);
+		final ChunkInfo lastChunkInfo = ChunkInfo.readInfo(chunk);
+		if (lastChunkInfo.isLast) {
+			// TODO Strip metadata			
+			chunkHandler.apply(chunk);
+		} else {
+			for (long o = recordOffset - (lastChunkInfo.index * chunkSize); o < recordOffset; o += chunkSize) {
+				chunk.rewind();
+				storage.read(o,chunk);
+				// TODO strip metadata
+				chunkHandler.apply(chunk);
+			}
+		}
+	}
+	
+	public void readRecord(final long recordOffset, final OutputStream os) {
+		readRecord(recordOffset,(ByteBuffer buf) -> {
+			try {
+				os.write(buf.array());
+			} catch (IOException e ){
+				throw new RuntimeException("Error writing record to stream",e);
+			}
+		});
 	}
 	
 	public long addRecord(final byte type, final byte[] data) {

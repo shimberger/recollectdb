@@ -2,11 +2,11 @@ package org.recollectdb.storage;
 
 import java.nio.ByteBuffer;
 
-public class ConcurrentMemoryStorage implements Storage {
+public class MultiReaderMemoryStorage implements Storage {
 
 	private volatile ByteBuffer storage;
 
-	public ConcurrentMemoryStorage(int size) {
+	public MultiReaderMemoryStorage(int size) {
 		this.storage = ByteBuffer.allocateDirect(size);
 		this.storage.limit(0);
 	}

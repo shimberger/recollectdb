@@ -6,7 +6,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.Before;
 import org.junit.Test;
-import org.recollectdb.storage.ConcurrentMemoryStorage;
+import org.recollectdb.storage.MultiReaderMemoryStorage;
 import org.recollectdb.test.utils.ByteUtils;
 
 public class RecordStoreTest {
@@ -19,7 +19,7 @@ public class RecordStoreTest {
 
 	@Before
 	public void setup() {
-		this.store = new RecordStore(CHUNK_SIZE, new ConcurrentMemoryStorage(MEGABYTES_32));
+		this.store = new RecordStore(CHUNK_SIZE, new MultiReaderMemoryStorage(MEGABYTES_32));
 	}
 
 	@Test

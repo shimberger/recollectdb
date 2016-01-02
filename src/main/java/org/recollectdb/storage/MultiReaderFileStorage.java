@@ -6,11 +6,11 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
-public class ConcurrentFileStorage implements Storage {
+public class MultiReaderFileStorage implements Storage {
 
 	private final FileChannel file;
 
-	public ConcurrentFileStorage(File file) throws IOException {
+	public MultiReaderFileStorage(File file) throws IOException {
 		RandomAccessFile raf = new RandomAccessFile(file.getAbsolutePath(), "rw");
 		this.file = raf.getChannel();
 	}

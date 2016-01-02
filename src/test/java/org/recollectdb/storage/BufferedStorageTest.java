@@ -5,7 +5,7 @@ import java.nio.ByteBuffer;
 public class BufferedStorageTest extends BaseStorageTest {
 
 	public Storage createEmptyStorage() throws Exception {
-		return new BufferedStorage(new ConcurrentMemoryStorage(1024 * 1024 * 32), ByteBuffer.allocateDirect(8));
+		return new BufferedStorage(new MultiReaderMemoryStorage(1024 * 1024 * 32), ByteBuffer.allocateDirect(8));
 	}
 
 }
