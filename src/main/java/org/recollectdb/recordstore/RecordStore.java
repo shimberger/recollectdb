@@ -5,9 +5,9 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
+import java.util.function.Consumer;
+import java.util.function.Function;
 
-import org.recollectdb.common.Function1;
-import org.recollectdb.common.Procedure1;
 import org.recollectdb.recordstore.ChunkedStreamReader.Chunk;
 import org.recollectdb.storage.Storage;
 
@@ -20,12 +20,12 @@ public final class RecordStore {
 	private final int dataSize;
 
 	public RecordStore(final short chunkSize, final Storage storage) {
-		this.storage = storage;
+		this.storage = storage ;
 		this.chunkSize = chunkSize;
 		this.dataSize = ChunkInfo.dataSize(chunkSize);
 	}
 
-	public void forEachRecord(final Function1<Boolean, ChunkInfo> fun) {
+	public void forEachRecord(final Function<ChunkInfo,Boolean> fun) {
 		// determine the end offset of the last chunk, this can not be the exact
 		// size
 		// of storage if the last write got interrupted mid-chunk
@@ -58,19 +58,19 @@ public final class RecordStore {
 		return this.dataSize;
 	}
 	
-	public void readRecord(final long recordOffset, Procedure1<ByteBuffer> chunkHandler) {
+	public void readRecord(final long recordOffset, Consumer<ByteBuffer> chunkHandler) {
 		final ByteBuffer chunk = ByteBuffer.allocate(chunkSize);
 		storage.read(recordOffset, chunk);
 		final ChunkInfo lastChunkInfo = ChunkInfo.readInfo(chunk);
 		if (lastChunkInfo.isLast) {
 			// TODO Strip metadata			
-			chunkHandler.apply(chunk);
+			chunkHandler.accept(chunk);
 		} else {
 			for (long o = recordOffset - (lastChunkInfo.index * chunkSize); o < recordOffset; o += chunkSize) {
 				chunk.rewind();
 				storage.read(o,chunk);
 				// TODO strip metadata
-				chunkHandler.apply(chunk);
+				chunkHandler.accept(chunk);
 			}
 		}
 	}
