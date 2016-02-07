@@ -24,7 +24,7 @@ public final class RecordStore {
 		this.chunkSize = chunkSize;
 		this.dataSize = ChunkInfo.dataSize(chunkSize);
 	}
-
+	
 	public void forEachRecord(final Function<ChunkInfo,Boolean> fun) {
 		// determine the end offset of the last chunk, this can not be the exact
 		// size
@@ -58,24 +58,23 @@ public final class RecordStore {
 		return this.dataSize;
 	}
 	
-	public void readRecord(final long recordOffset, Consumer<ByteBuffer> chunkHandler) {
+	public void readRecord(final long recordOffset, Consumer<ByteBuffer> chunkHandler) throws RecordStoreException {
+		ensureValidOffset(recordOffset);		
 		final ByteBuffer chunk = ByteBuffer.allocate(chunkSize);
 		storage.read(recordOffset, chunk);
-		final ChunkInfo lastChunkInfo = ChunkInfo.readInfo(chunk);
-		if (lastChunkInfo.isLast) {
-			// TODO Strip metadata			
-			chunkHandler.accept(chunk);
+		final ChunkInfo chunkInfo = ChunkInfo.readInfo(chunk);
+		if (chunkInfo.isLast) {			
+			chunkHandler.accept(getChunkData(chunk));
 		} else {
-			for (long o = recordOffset - (lastChunkInfo.index * chunkSize); o < recordOffset; o += chunkSize) {
-				chunk.rewind();
-				storage.read(o,chunk);
-				// TODO strip metadata
-				chunkHandler.accept(chunk);
+			for (long o = recordOffset - (chunkInfo.index * chunkSize); o < recordOffset; o += chunkSize) {
+				chunk.clear();
+				storage.read(o,chunk);				
+				chunkHandler.accept(getChunkData(chunk));
 			}
 		}
 	}
 	
-	public void readRecord(final long recordOffset, final OutputStream os) {
+	public void readRecord(final long recordOffset, final OutputStream os) throws RecordStoreException {
 		readRecord(recordOffset,(ByteBuffer buf) -> {
 			try {
 				os.write(buf.array());
@@ -84,11 +83,20 @@ public final class RecordStore {
 			}
 		});
 	}
-	
-	public long addRecord(final byte type, final byte[] data) {
-		return addRecord(type,new ByteArrayInputStream(data));
-	}
 
+	private void ensureValidOffset(final long offset) throws RecordStoreException {
+		if (offset % chunkSize != 0) {
+			throw new RecordStoreException("Offset is not multiple of chunk size " + offset);
+		}
+	}
+	
+	private ByteBuffer getChunkData(final ByteBuffer buffer) {
+		final ChunkInfo chunkInfo = ChunkInfo.readInfo(buffer);
+		buffer.limit(chunkInfo.dataLength);
+		int lala = buffer.remaining();
+		return buffer.slice().asReadOnlyBuffer();
+	}
+	
 	public long addRecord(final byte type, final ByteBuffer data) {
 		return addRecord(type,new ByteArrayInputStream(data.array()));
 	}

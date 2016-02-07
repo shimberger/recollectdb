@@ -1,5 +1,7 @@
 package org.recollectdb.test.utils;
 
+import static org.junit.Assert.assertEquals;
+
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.ByteBuffer;
@@ -24,7 +26,11 @@ public class ByteUtils {
 
 	public static ByteBuffer bufferFromString(String str) {
 		try {
-			return ENCODER.encode(CharBuffer.wrap(str));
+			ByteBuffer buf = ENCODER.encode(CharBuffer.wrap(str));
+			assertEquals(0,buf.position());
+			assertEquals(buf.capacity(),buf.remaining());
+			assertEquals(buf.capacity(),buf.limit());
+			return buf;
 		} catch (CharacterCodingException e) {
 			throw new RuntimeException(e);
 		}

@@ -6,7 +6,7 @@ public class FileStorageTest extends BaseStorageTest {
 
 	@Override
 	public Storage createEmptyStorage() throws Exception {
-		return new MultiReaderFileStorage(new File("test.tmp"));
+		return new FileStorage(new File("test.tmp"));
 	}
 
 }

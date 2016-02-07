@@ -25,7 +25,8 @@ public final class ChunkInfo {
 		this.isLast = isLast;
 	}
 
-	public static ChunkInfo readInfo(ByteBuffer buffer) {
+	public static ChunkInfo readInfo(ByteBuffer originalBuffer) {
+		final ByteBuffer buffer = originalBuffer.duplicate();
 		final ByteBuffer metadataBuffer = buffer;
 		buffer.position(buffer.capacity()-METADATA_SIZE);
 		final byte type = metadataBuffer.get(); // 1

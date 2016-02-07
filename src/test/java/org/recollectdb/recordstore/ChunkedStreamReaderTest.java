@@ -31,6 +31,11 @@ public class ChunkedStreamReaderTest {
 	public void emptyStreamDoesTwoIterations() {
 		assertEquals(2, countIterations(newReader(new ByteArrayInputStream(new byte[] { 1, 2, 3 }))));
 	}
+	
+	@Test
+	public void emptyStreamDoesTwoIterations2() {
+		assertEquals(2, countIterations(newReader(new ByteArrayInputStream(new byte[] { 1, 2, 3, 4 }))));
+	}
 
 	private ChunkedStreamReader newReader(InputStream is) {
 		return new ChunkedStreamReader(is, CHUNK_SIZE);

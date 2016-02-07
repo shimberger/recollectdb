@@ -6,17 +6,21 @@ import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
 
-public class MultiReaderFileStorage implements Storage {
+public class FileStorage implements Storage {
 
 	private final FileChannel file;
 
-	public MultiReaderFileStorage(File file) throws IOException {
+	public FileStorage(File file) throws IOException {
 		RandomAccessFile raf = new RandomAccessFile(file.getAbsolutePath(), "rw");
 		this.file = raf.getChannel();
 	}
 
 	@Override
-	public long write(ByteBuffer buffer) throws StorageException {
+	public long write(ByteBuffer originalBuffer) throws StorageException {
+		// First duplicate buffer so we can modify limit etc.
+		final ByteBuffer buffer = originalBuffer.duplicate();
+		
+		// Now write content to file
 		try {
 			long currLen = file.position();
 			file.write(buffer);

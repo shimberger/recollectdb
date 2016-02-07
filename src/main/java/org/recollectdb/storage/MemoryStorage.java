@@ -2,17 +2,20 @@ package org.recollectdb.storage;
 
 import java.nio.ByteBuffer;
 
-public class MultiReaderMemoryStorage implements Storage {
+public class MemoryStorage implements Storage {
 
 	private volatile ByteBuffer storage;
 
-	public MultiReaderMemoryStorage(int size) {
+	public MemoryStorage(int size) {
 		this.storage = ByteBuffer.allocateDirect(size);
 		this.storage.limit(0);
 	}
 
 	@Override
-	public long write(final ByteBuffer buffer) throws StorageException {
+	public long write(final ByteBuffer originalBuffer) throws StorageException {
+		// First duplicate buffer so we can modify limit etc.
+		final ByteBuffer buffer = originalBuffer.duplicate();
+		
 		// Event though duplicate is not atomic (because it has to copy
 		// position, limit and mark
 		// this is the only method where the buffer is updated. This means: As

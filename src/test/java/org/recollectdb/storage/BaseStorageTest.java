@@ -11,6 +11,8 @@ import java.nio.charset.CharsetEncoder;
 import org.junit.Before;
 import org.junit.Test;
 
+import static org.recollectdb.test.utils.ByteUtils.bufferFromString;
+
 public abstract class BaseStorageTest {
 
 	private static final Charset UTF8 = Charset.forName("UTF-8");
@@ -40,22 +42,36 @@ public abstract class BaseStorageTest {
 	@Test
 	public void writingReturnsCorrectOffset() {
 		assertEquals(0L, storage.length());
-		assertEquals(0L, storage.write(fromString("test")));
-		assertEquals(4L, storage.write(fromString("foo")));
-		assertEquals(7L, storage.length());
+		assertEquals(0L, storage.write(bufferFromString("test")));
+		assertEquals(4L, storage.write(bufferFromString("foo")));
+		assertEquals(7L, storage.write(bufferFromString("foo")));
+		assertEquals(10L, storage.length());
 	}
 
 	@Test
 	public void flushingDoesNotFail() {
-		storage.write(fromString("test1"));
-		storage.write(fromString("test2"));
-		storage.write(fromString("test3"));
-		storage.flush();
+		for (int i = 0; i < 8; i++) {
+			storage.write(bufferFromString("test1"));
+			storage.write(bufferFromString("test2"));
+			storage.write(bufferFromString("test3"));
+			storage.flush();
+		}
 	}
 
 	@Test
+	public void writingDoesNotChangeBuffer() {
+		ByteBuffer string = bufferFromString("test1");
+		ByteBuffer stringCopy = string.duplicate();
+		storage.write(string);
+		assertEquals(stringCopy.position(),string.position());
+		assertEquals(stringCopy.limit(),string.limit());
+		assertEquals(stringCopy.capacity(),string.capacity());
+		assertEquals(stringCopy.mark(),string.mark());
+	}		
+	
+	@Test
 	public void bufferLimitIsRespectedd() {
-		ByteBuffer string = fromString("test1");
+		ByteBuffer string = bufferFromString("test1");
 		assertEquals(0, string.position());
 		assertEquals(5, string.limit());
 		assertEquals(5, string.capacity());
@@ -63,16 +79,17 @@ public abstract class BaseStorageTest {
 		long offset = storage.write(string);
 		assertEquals(0, offset);
 		assertEquals(4, storage.length());
-		assertEquals(4, string.position());
 	}
 
 	@Test
 	public void writingAndThenReadingWorks() {
 		ByteBuffer targetBuf = ByteBuffer.allocate(3);
-		storage.write(fromString("test"));
-		long fooOffset = storage.write(fromString("foo"));
+		storage.write(bufferFromString("test"));
+		long fooOffset = storage.write(bufferFromString("foo"));
 		storage.read(fooOffset, targetBuf);
-		assertEquals(fromString("foo"), targetBuf);
+		assertEquals(3, targetBuf.remaining());
+		assertEquals(0, targetBuf.position());
+		assertEquals(bufferFromString("foo"), targetBuf);
 	}
 
 	@Test
@@ -81,20 +98,12 @@ public abstract class BaseStorageTest {
 		int length = 0;
 		for (String str : tests) {
 			ByteBuffer targetBuf = ByteBuffer.allocate(str.length());
-			long offset = storage.write(fromString(str));
+			long offset = storage.write(bufferFromString(str));
 			storage.read(offset, targetBuf);
-			assertEquals(fromString(str), targetBuf);
+			assertEquals(bufferFromString(str), targetBuf);
 			length += str.length();
 		}
 		assertEquals(length, storage.length());
-	}
-
-	private ByteBuffer fromString(String str) {
-		try {
-			return ENCODER.encode(CharBuffer.wrap(str));
-		} catch (CharacterCodingException e) {
-			throw new RuntimeException(e);
-		}
 	}
 
 }

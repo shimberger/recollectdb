@@ -15,7 +15,10 @@ public class BufferedStorage implements Storage {
 	}
 
 	@Override
-	public long write(final ByteBuffer dataBuffer) throws StorageException {
+	public long write(final ByteBuffer originalBuffer) throws StorageException {
+		// First duplicate buffer so we can modify limit etc.
+		final ByteBuffer dataBuffer = originalBuffer.duplicate();
+		
 		final long positionBeforeWrite = length();
 		final ByteBuffer writeChunk = dataBuffer.duplicate();
 		do {
