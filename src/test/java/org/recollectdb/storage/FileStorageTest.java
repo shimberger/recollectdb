@@ -1,12 +1,12 @@
 package org.recollectdb.storage;
 
-import java.io.File;
+import java.nio.file.Paths;
 
 public class FileStorageTest extends BaseStorageTest {
 
 	@Override
 	public Storage createEmptyStorage() throws Exception {
-		return new FileStorage(new File("test.tmp"));
+		return new FileStorage(Paths.get("test.tmp"));
 	}
 
 }

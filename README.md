@@ -18,13 +18,13 @@ This is useful for writing transactions. It can be used by single thread only th
 
 ### Record Layer
 
-Implements a somewhat structured record layer on top of the storage layer. Allows to add records
+Implements a structured record layer on top of the storage layer. Allows to add records
 to storage and also allows the client to iterate over the records. A record has a type and 
 consists of multiple equally n-sized chunks, where the last chunk can be smaller. 
 Each chunk contains a footer with the following meta-data:
 
 - type (byte)
-- payload size (short)
+- data size (short)
 - index (short)
 - isLast (byte)
 

@@ -93,7 +93,6 @@ public final class RecordStore {
 	private ByteBuffer getChunkData(final ByteBuffer buffer) {
 		final ChunkInfo chunkInfo = ChunkInfo.readInfo(buffer);
 		buffer.limit(chunkInfo.dataLength);
-		int lala = buffer.remaining();
 		return buffer.slice().asReadOnlyBuffer();
 	}
 	

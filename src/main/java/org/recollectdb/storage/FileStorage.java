@@ -1,18 +1,17 @@
 package org.recollectdb.storage;
 
-import java.io.File;
 import java.io.IOException;
-import java.io.RandomAccessFile;
 import java.nio.ByteBuffer;
 import java.nio.channels.FileChannel;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
 
 public class FileStorage implements Storage {
 
 	private final FileChannel file;
 
-	public FileStorage(File file) throws IOException {
-		RandomAccessFile raf = new RandomAccessFile(file.getAbsolutePath(), "rw");
-		this.file = raf.getChannel();
+	public FileStorage(Path path) throws IOException {		
+		this.file = FileChannel.open(path,StandardOpenOption.CREATE,StandardOpenOption.WRITE,StandardOpenOption.READ);
 	}
 
 	@Override
